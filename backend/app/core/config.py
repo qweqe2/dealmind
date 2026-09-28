@@ -15,8 +15,9 @@ class Settings(BaseSettings):
     # CORS - defaults if not set in .env
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173"
 
-    # LLM Configuration (for future AI agent)
+    # LLM Configuration (for AI agent)
     LLM_API_KEY: str = ""
+    ANTHROPIC_API_KEY: str = ""  # Alias for LLM_API_KEY
 
     # Hindsight API (for future integration)
     HINDSIGHT_API_URL: str = ""
