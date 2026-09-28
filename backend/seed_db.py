@@ -21,17 +21,17 @@ from app.models import Deal, Timeline, Memory
 
 def clear_database(db):
     """Remove all existing data."""
-    print("🗑️  Clearing existing data...")
+    print("Clearing existing data...")
     db.query(Memory).delete()
     db.query(Timeline).delete()
     db.query(Deal).delete()
     db.commit()
-    print("✓ Database cleared")
+    print("Database cleared")
 
 
 def create_deals(db):
     """Create seed deals."""
-    print("\n📝 Creating deals...")
+    print("\nCreating deals...")
 
     deals_data = [
         {
@@ -90,7 +90,7 @@ def create_deals(db):
         db.add(deal)
         db.flush()  # Get the ID without committing
         created_deals.append(deal)
-        print(f"  ✓ Created deal #{deal.id}: {deal.company} - {deal.deal_name}")
+        print(f"  + Created deal #{deal.id}: {deal.company} - {deal.deal_name}")
 
     db.commit()
     return created_deals
@@ -98,7 +98,7 @@ def create_deals(db):
 
 def create_timeline_events(db, deals):
     """Create timeline events for deals."""
-    print("\n📅 Creating timeline events...")
+    print("\nCreating timeline events...")
 
     # Orion Health timeline
     orion_timeline = [
@@ -187,14 +187,14 @@ def create_timeline_events(db, deals):
     for event_data in all_timeline:
         event = Timeline(**event_data)
         db.add(event)
-        print(f"  ✓ Created timeline event: {event.title}")
+        print(f"  + Created timeline event: {event.title}")
 
     db.commit()
 
 
 def create_memories(db, deals):
     """Create memories for deals."""
-    print("\n🧠 Creating memories...")
+    print("\nCreating memories...")
 
     # Orion Health memories
     orion_memories = [
@@ -243,7 +243,7 @@ def create_memories(db, deals):
     for memory_data in all_memories:
         memory = Memory(**memory_data)
         db.add(memory)
-        print(f"  ✓ Created memory: {memory.content[:50]}...")
+        print(f"  + Created memory: {memory.content[:50]}...")
 
     db.commit()
 
@@ -251,13 +251,13 @@ def create_memories(db, deals):
 def main():
     """Main seed function."""
     print("=" * 60)
-    print("🌱 DealMind Database Seed Script")
+    print("DealMind Database Seed Script")
     print("=" * 60)
 
     # Initialize database tables
-    print("\n📊 Initializing database schema...")
+    print("\nInitializing database schema...")
     init_db()
-    print("✓ Database schema ready")
+    print("Database schema ready")
 
     # Create session
     db = SessionLocal()
@@ -272,17 +272,17 @@ def main():
         create_memories(db, deals)
 
         print("\n" + "=" * 60)
-        print("✅ Seed completed successfully!")
+        print("Seed completed successfully!")
         print("=" * 60)
         print(f"\nCreated:")
         print(f"  - {len(deals)} deals")
         print(f"  - Timeline events for each deal")
         print(f"  - Memories for each deal")
-        print("\n🚀 Start the backend server to test:")
+        print("\nStart the backend server to test:")
         print("     uvicorn app.main:app --reload --port 8000")
 
     except Exception as e:
-        print(f"\n❌ Error during seeding: {e}")
+        print(f"\nError during seeding: {e}")
         db.rollback()
         raise
 
