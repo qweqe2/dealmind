@@ -7,7 +7,7 @@ import { healthCheck } from "./services/api";
 import { loadDeals } from "./services/dealData";
 import "./App.css";
 import "./pages/deal-pages.css";
-
+import React, { useState, useEffect } from "react";
 function Workspace() {
   const [backendOnline, setBackendOnline] = useState(null);
   const [deals, setDeals] = useState([]);
