@@ -40,3 +40,6 @@ Thumbs.db
 node_modules/
 dist/
 .cache/
+
+.freebuff/
+backend/HINDSIGHT_VERIFICATION_REPORT.md

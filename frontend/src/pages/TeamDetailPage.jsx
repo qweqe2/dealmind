@@ -5,6 +5,7 @@ import StatusBadge from "../components/StatusBadge";
 import DealSignal from "../components/DealSignal";
 import AIRecommendation from "../components/AIRecommendation";
 import MemoryContext from "../components/MemoryContext";
+import DealRiskCard from "../components/DealRiskCard";
 
 function dateLabel(value, options = { dateStyle: "medium" }) {
   if (!value) return "Not set";
@@ -48,8 +49,8 @@ function BriefSection({ state, brief, source, error, memories }) {
   );
 }
 
-export default function DealDetailPage() {
-  const { dealId } = useParams();
+export default function TeamDetailPage() {
+  const { teamId } = useParams();
   const [loadState, setLoadState] = useState(null);
   const [briefState, setBriefState] = useState("idle");
   const [brief, setBrief] = useState(null);
@@ -59,11 +60,11 @@ export default function DealDetailPage() {
 
   useEffect(() => {
     let active = true;
-    loadDealWorkspace(dealId)
-      .then((workspace) => { if (active) setLoadState({ dealId, workspace }); })
-      .catch((error) => { if (active) setLoadState({ dealId, error: error.message }); });
+    loadDealWorkspace(teamId)
+      .then((workspace) => { if (active) setLoadState({ teamId, workspace }); })
+      .catch((error) => { if (active) setLoadState({ teamId, error: error.message }); });
     return () => { active = false; };
-  }, [dealId]);
+  }, [teamId]);
 
   async function handlePrepareMeeting() {
     if (!loadState?.workspace?.deal) return;
@@ -82,9 +83,9 @@ export default function DealDetailPage() {
     }
   }
 
-  if (!loadState || loadState.dealId !== dealId) return <div className="detail-loading" role="status">Loading deal context...</div>;
+  if (!loadState || loadState.teamId !== teamId) return <div className="detail-loading" role="status">Loading team context...</div>;
   if (!loadState.workspace) {
-    return <div className="detail-unavailable" role="alert"><h1>Deal unavailable</h1><p>{loadState.error || "This deal could not be loaded."}</p><Link to="/deals">Back to Deals</Link></div>;
+    return <div className="detail-unavailable" role="alert"><h1>Team unavailable</h1><p>{loadState.error || "This team could not be loaded."}</p><Link to="/teams">Back to Teams</Link></div>;
   }
 
   const { workspace } = loadState;
@@ -95,18 +96,21 @@ export default function DealDetailPage() {
   const primaryRisk = deal.insights?.find(insight => insight.tone === "risk");
   const aiRecommendation = primaryRisk 
     ? `Address the ${primaryRisk.title.toLowerCase()}: ${primaryRisk.detail}. Consider scheduling a follow-up with ${deal.contact?.name || "the contact"} to resolve this blocker.`
-    : deal.insights?.[0]?.detail || "Continue monitoring deal progress and maintain regular communication with the customer.";
+    : deal.insights?.[0]?.detail || "Continue monitoring team progress and maintain regular communication.";
+  
+  // Check if this team has derived metrics
+  const hasDerivedMetrics = source === 'demo';
 
   return (
     <>
-      <div className="detail-back"><Link to="/deals"><span aria-hidden="true">←</span> All deals</Link>{source === "demo" && <span className="data-source data-source--demo">SAMPLE RECORD</span>}</div>
+      <div className="detail-back"><Link to="/teams"><span aria-hidden="true">←</span> All teams</Link>{source === "demo" && <span className="data-source data-source--demo">SAMPLE RECORD</span>}</div>
       
-      {/* Deal Header */}
+      {/* Team Header */}
       <section className="deal-detail-header">
         <div className="deal-detail-company-mark" aria-hidden="true">{deal.company?.slice(0, 1) || "D"}</div>
         <div className="deal-detail-title">
           <p className="eyebrow">{deal.company || "Company not provided"}</p>
-          <h1>{deal.deal_name || "Untitled deal"}</h1>
+          <h1>{deal.deal_name || "Untitled team"}</h1>
           <div className="deal-detail-meta">
             <span className="stage-pill">{deal.stage || "Stage not set"}</span>
             <StatusBadge status={deal.status} />
@@ -114,22 +118,23 @@ export default function DealDetailPage() {
           </div>
         </div>
         <div className="deal-detail-actions">
-          <Link className="secondary-button" to={`/deals/${deal.id}/assistant`}><span aria-hidden="true">✳</span> Ask DealMind</Link>
+          <Link className="secondary-button" to={`/teams/${deal.id}/assistant`}><span aria-hidden="true">✳</span> Ask DealMind</Link>
           <button className="primary-button" type="button" onClick={handlePrepareMeeting} disabled={briefState === "loading"}><span aria-hidden="true">▣</span> {briefState === "loading" ? "Preparing..." : "Prepare Meeting"}</button>
         </div>
       </section>
 
-      {source === "demo" && <div className="demo-banner">SAMPLE DEAL CONTEXT <span>Some details below are illustrative until the backend returns complete deal records.</span></div>}
+      {source === "demo" && <div className="demo-banner">SAMPLE TEAM CONTEXT <span>Some details below are illustrative until the backend returns complete team records.</span></div>}
 
-      {/* AI Deal Brief */}
+      {/* AI Team Brief */}
       <section className="deal-detail-brief">
         <div className="deal-detail-brief-header">
           <span className="deal-detail-brief-icon" aria-hidden="true">✳</span>
           <div>
-            <p className="eyebrow">AI DEAL BRIEF</p>
-            <h2>Why this deal needs attention</h2>
+            <p className="eyebrow">AI TEAM BRIEF</p>
+            <h2>Why this team needs attention</h2>
           </div>
           {hasMemoryContext && <span className="memory-indicator">Memory context available</span>}
+          {hasDerivedMetrics && <span className="data-source data-source--demo">Demo data</span>}
         </div>
         
         <div className="deal-detail-brief-content">
@@ -137,8 +142,8 @@ export default function DealDetailPage() {
             <div className="deal-detail-brief-alert">
               <span className="deal-detail-brief-alert-icon">⚠</span>
               <div>
-                <h3>This deal requires attention</h3>
-                <p>AI analysis has identified risk signals that may impact deal progression.</p>
+                <h3>This team requires attention</h3>
+                <p>AI analysis has identified risk signals that may impact team progression.</p>
               </div>
             </div>
           )}
@@ -207,7 +212,7 @@ export default function DealDetailPage() {
                         <h3>{event.title}</h3>
                         <time dateTime={event.date}>{dateLabel(event.date)}</time>
                       </div>
-                      <p>{event.description || event.type || "Deal activity"}</p>
+                      <p>{event.description || event.type || "Team activity"}</p>
                     </div>
                   </li>
                 ))}
@@ -230,7 +235,7 @@ export default function DealDetailPage() {
           </section>
           
           <section className="side-panel">
-            <p className="eyebrow">CUSTOMER</p>
+            <p className="eyebrow">CONTACT</p>
             <h2>{deal.contact?.name || "Contact not provided"}</h2>
             <p className="contact-role">{deal.contact?.role || "Role not provided"}</p>
             {deal.contact?.email && <a className="contact-email" href={`mailto:${deal.contact.email}`}>{deal.contact.email}</a>}
