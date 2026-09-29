@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { generateMeetingBrief, loadDealWorkspace } from "../services/dealData";
-import StatusBadge from "../components/StatusBadge";
-import DealSignal from "../components/DealSignal";
-import AIRecommendation from "../components/AIRecommendation";
-import MemoryContext from "../components/MemoryContext";
 
 function dateLabel(value, options = { dateStyle: "medium" }) {
   if (!value) return "Not set";
@@ -19,7 +15,7 @@ function currencyLabel(value, currency = "USD") {
 
 function BriefSection({ state, brief, source, error, memories }) {
   if (state === "idle") return null;
-  if (state === "loading") return <section className="brief-panel" aria-live="polite"><div className="brief-loading"><span className="loading-spinner" />Building your meeting brief...</div></section>;
+  if (state === "loading") return <section className="brief-panel" aria-live="polite"><div className="brief-loading"><span className="loading-pulse" />Building your meeting brief...</div></section>;
   if (state === "error") return <section className="brief-panel brief-panel--error" role="alert"><h2>Brief could not be prepared</h2><p>{error}</p></section>;
   if (!brief || !Object.values(brief).some((value) => Array.isArray(value) ? value.length : Boolean(value))) {
     return <section className="brief-panel"><h2>Meeting brief is empty</h2><p>No brief details were returned. Add deal context or try again.</p></section>;
@@ -66,11 +62,11 @@ export default function DealDetailPage() {
   }, [dealId]);
 
   async function handlePrepareMeeting() {
-    if (!loadState?.workspace?.deal) return;
+    if (!workspace?.deal) return;
     setBriefState("loading");
     setBriefError("");
     try {
-      const result = await generateMeetingBrief(loadState.workspace.deal, loadState.workspace.timeline);
+      const result = await generateMeetingBrief(workspace.deal, workspace.timeline);
       setBrief(result.brief);
       setBriefSource(result.source);
       setBriefMemories(result.memories || []);
@@ -89,160 +85,34 @@ export default function DealDetailPage() {
 
   const { workspace } = loadState;
   const { deal, timeline, memories, source } = workspace;
-  const hasMemoryContext = memories && memories.length > 0;
-  
-  // Generate AI recommendation from insights
-  const primaryRisk = deal.insights?.find(insight => insight.tone === "risk");
-  const aiRecommendation = primaryRisk 
-    ? `Address the ${primaryRisk.title.toLowerCase()}: ${primaryRisk.detail}. Consider scheduling a follow-up with ${deal.contact?.name || "the contact"} to resolve this blocker.`
-    : deal.insights?.[0]?.detail || "Continue monitoring deal progress and maintain regular communication with the customer.";
-
   return (
     <>
       <div className="detail-back"><Link to="/deals"><span aria-hidden="true">←</span> All deals</Link>{source === "demo" && <span className="data-source data-source--demo">SAMPLE RECORD</span>}</div>
-      
-      {/* Deal Header */}
-      <section className="deal-detail-header">
-        <div className="deal-detail-company-mark" aria-hidden="true">{deal.company?.slice(0, 1) || "D"}</div>
-        <div className="deal-detail-title">
-          <p className="eyebrow">{deal.company || "Company not provided"}</p>
-          <h1>{deal.deal_name || "Untitled deal"}</h1>
-          <div className="deal-detail-meta">
-            <span className="stage-pill">{deal.stage || "Stage not set"}</span>
-            <StatusBadge status={deal.status} />
-            <span className="deal-detail-value">{currencyLabel(deal.value, deal.currency)}</span>
-          </div>
-        </div>
-        <div className="deal-detail-actions">
-          <Link className="secondary-button" to={`/deals/${deal.id}/assistant`}><span aria-hidden="true">✳</span> Ask DealMind</Link>
-          <button className="primary-button" type="button" onClick={handlePrepareMeeting} disabled={briefState === "loading"}><span aria-hidden="true">▣</span> {briefState === "loading" ? "Preparing..." : "Prepare Meeting"}</button>
-        </div>
+      <section className="detail-heading">
+        <div className="detail-company-mark" aria-hidden="true">{deal.company?.slice(0, 1) || "D"}</div>
+        <div className="detail-title"><p className="eyebrow">{deal.company || "Company not provided"}</p><h1>{deal.deal_name || "Untitled deal"}</h1><div className="detail-title-meta"><span className="stage-pill">{deal.stage || "Stage not set"}</span><span className={`status-pill status-pill--${deal.status || "unknown"}`}><span className="status-dot" />{(deal.status || "unknown").replaceAll("_", " ")}</span></div></div>
+        <div className="detail-actions"><Link className="secondary-button" to={`/deals/${deal.id}/assistant`}><span aria-hidden="true">✳</span> Ask Deal Assistant</Link><button className="primary-button" type="button" onClick={handlePrepareMeeting} disabled={briefState === "loading"}><span aria-hidden="true">▣</span> {briefState === "loading" ? "Preparing..." : "Prepare Meeting"}</button></div>
       </section>
 
       {source === "demo" && <div className="demo-banner">SAMPLE DEAL CONTEXT <span>Some details below are illustrative until the backend returns complete deal records.</span></div>}
 
-      {/* AI Deal Brief */}
-      <section className="deal-detail-brief">
-        <div className="deal-detail-brief-header">
-          <span className="deal-detail-brief-icon" aria-hidden="true">✳</span>
-          <div>
-            <p className="eyebrow">AI DEAL BRIEF</p>
-            <h2>Why this deal needs attention</h2>
-          </div>
-          {hasMemoryContext && <span className="memory-indicator">Memory context available</span>}
-        </div>
-        
-        <div className="deal-detail-brief-content">
-          {deal.status === "needs_attention" && (
-            <div className="deal-detail-brief-alert">
-              <span className="deal-detail-brief-alert-icon">⚠</span>
-              <div>
-                <h3>This deal requires attention</h3>
-                <p>AI analysis has identified risk signals that may impact deal progression.</p>
-              </div>
-            </div>
-          )}
-          
-          {deal.notes && (
-            <div className="deal-detail-brief-notes">
-              <span className="deal-detail-brief-label">Key context</span>
-              <p>{deal.notes}</p>
-            </div>
-          )}
-          
-          {deal.insights && deal.insights.length > 0 && (
-            <div className="deal-detail-brief-insights">
-              <span className="deal-detail-brief-label">AI analysis</span>
-              <div className="deal-detail-brief-insights-list">
-                {deal.insights.map((insight) => (
-                  <DealSignal key={insight.title} signal={insight} tone={insight.tone} />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
+      <section className="detail-metrics" aria-label="Deal summary"><article><span>Deal value</span><strong>{currencyLabel(deal.value, deal.currency)}</strong></article><article><span>Target close</span><strong>{dateLabel(deal.close_date)}</strong></article><article><span>Next meeting</span><strong>{dateLabel(deal.next_meeting, { dateStyle: "medium", timeStyle: "short" })}</strong></article><article><span>Deal owner</span><strong>{deal.owner || "Not assigned"}</strong></article></section>
 
-      {/* Risk Signals */}
-      {deal.insights && deal.insights.length > 0 && (
-        <section className="deal-detail-risks">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">RISK SIGNALS</p>
-              <h2>Signals detected</h2>
-            </div>
-          </div>
-          <div className="deal-detail-risks-list">
-            {deal.insights.map((insight) => (
-              <div key={insight.title} className={`deal-detail-risk-item deal-detail-risk-item--${insight.tone || "watch"}`}>
-                <span className="deal-detail-risk-title">{insight.title}</span>
-                <p className="deal-detail-risk-detail">{insight.detail}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      <BriefSection state={briefState} brief={brief} source={briefSource} error={briefError} memories={briefMemories} />
 
-      {/* Recommended Action */}
-      <AIRecommendation 
-        recommendation={aiRecommendation}
-        source={source}
-      />
-
-      {/* Split Layout: Timeline and Memory */}
-      <div className="deal-detail-split">
-        <div className="deal-detail-main">
-          <section className="detail-section">
-            <div className="section-heading">
-              <div><p className="eyebrow">TIMELINE</p><h2>Activity history</h2></div>
-              <span className="section-count">{timeline.length} activities</span>
-            </div>
-            {timeline.length ? (
-              <ol className="deal-timeline">
-                {[...timeline].sort((a, b) => new Date(b.date) - new Date(a.date)).map((event) => (
-                  <li className="timeline-event" key={event.id}>
-                    <span className={`timeline-marker timeline-marker--${event.type || "activity"}`} />
-                    <div className="timeline-content">
-                      <div className="timeline-event-heading">
-                        <h3>{event.title}</h3>
-                        <time dateTime={event.date}>{dateLabel(event.date)}</time>
-                      </div>
-                      <p>{event.description || event.type || "Deal activity"}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            ) : <p className="section-empty">No activities recorded yet.</p>}
+      <div className="detail-grid">
+        <div className="detail-main-column">
+          <section className="detail-section"><div className="section-heading"><div><p className="eyebrow">DEAL PROGRESS</p><h2>Timeline</h2></div><span className="section-count">{timeline.length} activities</span></div>
+            {timeline.length ? <ol className="deal-timeline">{[...timeline].sort((a, b) => new Date(b.date) - new Date(a.date)).map((event) => <li className="timeline-event" key={event.id}><span className={`timeline-marker timeline-marker--${event.type || "activity"}`} /><div className="timeline-content"><div className="timeline-event-heading"><h3>{event.title}</h3><time dateTime={event.date}>{dateLabel(event.date)}</time></div><p>{event.description || event.type || "Deal activity"}</p></div></li>)}</ol> : <p className="section-empty">No activities recorded yet.</p>}
           </section>
+          <section className="detail-section notes-section"><div className="section-heading"><div><p className="eyebrow">CUSTOMER CONTEXT</p><h2>Notes</h2></div></div><p className="deal-notes">{deal.notes || "No notes have been added to this deal."}</p><div className="last-activity">Last activity <strong>{dateLabel(deal.last_activity)}</strong></div></section>
         </div>
-        
-        <aside className="deal-detail-side">
-          <section className="side-panel">
-            <div className="side-panel-heading">
-              <div><p className="eyebrow">MEMORY / CONTEXT</p><h2>Relevant memory</h2></div>
-              {hasMemoryContext && <span className="memory-count">{memories.length}</span>}
-            </div>
-            {hasMemoryContext ? (
-              <MemoryContext memories={memories} count={memories.length} />
-            ) : (
-              <p className="section-empty">No memory context available yet.</p>
-            )}
-          </section>
-          
-          <section className="side-panel">
-            <p className="eyebrow">CUSTOMER</p>
-            <h2>{deal.contact?.name || "Contact not provided"}</h2>
-            <p className="contact-role">{deal.contact?.role || "Role not provided"}</p>
-            {deal.contact?.email && <a className="contact-email" href={`mailto:${deal.contact.email}`}>{deal.contact.email}</a>}
-            <div className="side-divider" />
-            <div className="side-meta"><span>Company</span><strong>{deal.company || "Not provided"}</strong></div>
-            <div className="side-meta"><span>Close date</span><strong>{dateLabel(deal.close_date)}</strong></div>
-          </section>
+        <aside className="detail-side-column">
+          <section className="side-panel"><p className="eyebrow">CUSTOMER</p><h2>{deal.contact?.name || "Contact not provided"}</h2><p className="contact-role">{deal.contact?.role || "Role not provided"}</p>{deal.contact?.email && <a className="contact-email" href={`mailto:${deal.contact.email}`}>{deal.contact.email}</a>}<div className="side-divider" /><div className="side-meta"><span>Company</span><strong>{deal.company || "Not provided"}</strong></div><div className="side-meta"><span>Close date</span><strong>{dateLabel(deal.close_date)}</strong></div></section>
+          <section className="side-panel"><div className="side-panel-heading"><div><p className="eyebrow">DEAL INTELLIGENCE</p><h2>AI insights</h2></div><span className="insight-spark" aria-hidden="true">✳</span></div>{deal.insights?.length ? <div className="insight-list">{deal.insights.map((insight) => <article className={`insight-item insight-item--${insight.tone || "watch"}`} key={insight.title}><span>{insight.title}</span><p>{insight.detail}</p></article>)}</div> : <p className="section-empty">No insights available for this deal.</p>}<Link className="insight-assistant-link" to={`/deals/${deal.id}/assistant`}>Explore with Deal Assistant <span aria-hidden="true">→</span></Link></section>
+          <section className="side-panel memory-panel"><div className="side-panel-heading"><div><p className="eyebrow">RECORDED CONTEXT</p><h2>Deal memory</h2></div><span className="memory-count">{memories.length}</span></div>{memories.length ? <ul className="memory-list">{memories.slice(0, 3).map((memory) => <li key={memory.id || memory.content}><p>{memory.content}</p><span>{memory.source || "Deal note"}</span></li>)}</ul> : <p className="section-empty">No memory notes yet.</p>}</section>
         </aside>
       </div>
-
-      {/* Meeting Brief (Collapsible) */}
-      <BriefSection state={briefState} brief={brief} source={briefSource} error={briefError} memories={briefMemories} />
     </>
   );
 }

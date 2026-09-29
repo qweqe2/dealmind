@@ -16,22 +16,8 @@ export default function DealsPage({ deals, loading, error, dataSource }) {
 
   return (
     <>
-      <section className="page-heading page-heading--list">
-        <div>
-          <p className="eyebrow">PIPELINE</p>
-          <h1>Deals</h1>
-          <p className="page-subtitle">Track every opportunity and its current momentum.</p>
-        </div>
-        <div className="page-heading-meta">
-          <span className="list-total">{loading || error ? "—" : `${deals.length} deals`}</span>
-          {dataSource === "demo" && (
-            <span className="data-source-badge data-source-badge--demo">DEMO DATA</span>
-          )}
-          {dataSource === "api" && (
-            <span className="data-source-badge data-source-badge--live">LIVE DATA</span>
-          )}
-        </div>
-      </section>
+      <section className="page-heading page-heading--list"><div><p className="eyebrow">PIPELINE</p><h1>Deals</h1><p className="page-subtitle">Track every opportunity and its current momentum.</p></div><span className="list-total">{loading || error ? "—" : `${deals.length} deals`}</span></section>
+      {dataSource === "demo" && <div className="demo-banner">DEMO DATA <span>Sample opportunities are shown until live deal data is available.</span></div>}
       <section className="content-section deals-section">
         <div className="list-toolbar">
           <label className="search-field"><span className="search-icon" aria-hidden="true" /><span className="visually-hidden">Search deals</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search company, deal, or stage" /></label>
