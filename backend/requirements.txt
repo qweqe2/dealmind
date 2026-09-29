@@ -17,3 +17,9 @@ python-multipart==0.0.12
 
 # AI Agent
 anthropic==0.39.0
+
+# Memory Service
+hindsight-client==0.10.0
+
+# Testing
+pytest==8.3.3
