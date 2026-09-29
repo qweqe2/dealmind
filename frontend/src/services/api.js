@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8001";
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, options);
@@ -42,6 +42,15 @@ export function sendDealMessage(dealId, message, options) {
 
 export function prepareMeeting(dealId, options) {
   return request("/api/agent/prepare", {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify({ deal_id: dealId }),
+  });
+}
+
+export function generateWarRoom(dealId, options) {
+  return request("/api/agent/war-room", {
     ...options,
     method: "POST",
     headers: { "Content-Type": "application/json", ...options?.headers },

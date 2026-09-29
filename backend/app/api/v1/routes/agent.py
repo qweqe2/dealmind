@@ -1,14 +1,26 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
 from app.core.database import get_db
-from app.agent.schemas import AgentChatRequest, AgentChatResponse, AgentPrepareRequest, AgentPrepareResponse
+from app.agent.schemas import (
+    AgentChatRequest,
+    AgentChatResponse,
+    AgentPrepareRequest,
+    AgentPrepareResponse,
+    WarRoomResponse,
+)
 from app.agent.agent import run_agent
+from app.agent.war_room import generate_war_room
+
 
 router = APIRouter()
 
 
 @router.post("/chat", response_model=AgentChatResponse)
-def agent_chat(request: AgentChatRequest, db: Session = Depends(get_db)):
+def agent_chat(
+    request: AgentChatRequest,
+    db: Session = Depends(get_db),
+):
     """
     Chat with the AI agent about deals.
 
@@ -37,7 +49,10 @@ def agent_chat(request: AgentChatRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/prepare", response_model=AgentPrepareResponse)
-def agent_prepare(request: AgentPrepareRequest, db: Session = Depends(get_db)):
+def agent_prepare(
+    request: AgentPrepareRequest,
+    db: Session = Depends(get_db),
+):
     """
     Prepare a meeting brief for a specific deal.
 
@@ -51,7 +66,10 @@ def agent_prepare(request: AgentPrepareRequest, db: Session = Depends(get_db)):
         # For now, use the same agent logic with a specific question
         # TODO: Implement dedicated meeting preparation logic
         result = run_agent(
-            question="Prepare a meeting brief for this deal. Include key talking points, potential blockers, and next steps.",
+            question=(
+                "Prepare a meeting brief for this deal. "
+                "Include key talking points, potential blockers, and next steps."
+            ),
             db=db,
             deal_id=request.deal_id,
         )
@@ -73,4 +91,30 @@ def agent_prepare(request: AgentPrepareRequest, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Agent error: {str(e)}",
+        )
+
+
+@router.post("/war-room", response_model=WarRoomResponse)
+def agent_war_room(
+    request: AgentPrepareRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Generate a Deal War Room analysis for a specific deal.
+
+    This is separate from the existing Deal Assistant
+    and meeting preparation logic.
+    """
+    try:
+        result = generate_war_room(
+            db=db,
+            deal_id=request.deal_id,
+        )
+
+        return WarRoomResponse(**result)
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"War Room error: {str(e)}",
         )

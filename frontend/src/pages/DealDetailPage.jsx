@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { generateMeetingBrief, loadDealWorkspace } from "../services/dealData";
+import { generateWarRoom } from "../services/api";
 
 function dateLabel(value, options = { dateStyle: "medium" }) {
   if (!value) return "Not set";
@@ -44,6 +45,63 @@ function BriefSection({ state, brief, source, error, memories }) {
   );
 }
 
+function WarRoomSection({ state, warRoom, error }) {
+  if (state === "idle") return null;
+  if (state === "loading") return <section className="brief-panel" aria-live="polite"><div className="brief-loading"><span className="loading-pulse" />Generating Deal War Room analysis...</div></section>;
+  if (state === "error") return <section className="brief-panel brief-panel--error" role="alert"><h2>War Room analysis could not be generated</h2><p>{error}</p></section>;
+  if (!warRoom) return <section className="brief-panel"><h2>War Room analysis is empty</h2><p>No analysis details were returned. Try again.</p></section>;
+
+  return (
+    <section className="brief-panel" id="war-room" aria-labelledby="war-room-title">
+      <div className="brief-header"><div><p className="eyebrow">DEAL INTELLIGENCE</p><h2 id="war-room-title">Deal War Room</h2></div><span className="data-source">AI GENERATED</span></div>
+      
+      <div className="war-room-grid">
+        <div className="war-room-card war-room-card--primary">
+          <h3>Summary</h3>
+          <p>{warRoom.summary || "No summary available"}</p>
+        </div>
+        
+        <div className="war-room-card war-room-card--blocker">
+          <h3>Primary Blocker</h3>
+          <p className="war-room-blocker">{warRoom.primary_blocker || "No blocker identified"}</p>
+        </div>
+        
+        <div className="war-room-card war-room-card--action">
+          <h3>Next Best Action</h3>
+          <p className="war-room-action">{warRoom.next_best_action || "No action recommended"}</p>
+        </div>
+        
+        <div className="war-room-card war-room-card--stakeholder">
+          <h3>Key Stakeholder</h3>
+          <p>{warRoom.stakeholder || "No stakeholder identified"}</p>
+        </div>
+      </div>
+      
+      {warRoom.questions?.length > 0 && (
+        <div className="war-room-section">
+          <h3>Strategic Questions</h3>
+          <ul className="war-room-list">
+            {warRoom.questions.map((question, index) => (
+              <li key={`question-${index}`}>{question}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {warRoom.risks?.length > 0 && (
+        <div className="war-room-section">
+          <h3>Identified Risks</h3>
+          <ul className="war-room-list war-room-list--risks">
+            {warRoom.risks.map((risk, index) => (
+              <li key={`risk-${index}`}>{risk}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function DealDetailPage() {
   const { dealId } = useParams();
   const [loadState, setLoadState] = useState(null);
@@ -52,6 +110,9 @@ export default function DealDetailPage() {
   const [briefSource, setBriefSource] = useState("demo");
   const [briefError, setBriefError] = useState("");
   const [briefMemories, setBriefMemories] = useState([]);
+  const [warRoomState, setWarRoomState] = useState("idle");
+  const [warRoom, setWarRoom] = useState(null);
+  const [warRoomError, setWarRoomError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -78,6 +139,21 @@ export default function DealDetailPage() {
     }
   }
 
+  async function handleGenerateWarRoom() {
+    if (!dealId) return;
+    setWarRoomState("loading");
+    setWarRoomError("");
+    try {
+      const result = await generateWarRoom(dealId);
+      setWarRoom(result);
+      setWarRoomState("ready");
+      requestAnimationFrame(() => document.getElementById("war-room")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    } catch (error) {
+      setWarRoomError(error.message || "Unable to generate War Room analysis.");
+      setWarRoomState("error");
+    }
+  }
+
   if (!loadState || loadState.dealId !== dealId) return <div className="detail-loading" role="status">Loading deal context...</div>;
   if (!loadState.workspace) {
     return <div className="detail-unavailable" role="alert"><h1>Deal unavailable</h1><p>{loadState.error || "This deal could not be loaded."}</p><Link to="/deals">Back to Deals</Link></div>;
@@ -91,7 +167,7 @@ export default function DealDetailPage() {
       <section className="detail-heading">
         <div className="detail-company-mark" aria-hidden="true">{deal.company?.slice(0, 1) || "D"}</div>
         <div className="detail-title"><p className="eyebrow">{deal.company || "Company not provided"}</p><h1>{deal.deal_name || "Untitled deal"}</h1><div className="detail-title-meta"><span className="stage-pill">{deal.stage || "Stage not set"}</span><span className={`status-pill status-pill--${deal.status || "unknown"}`}><span className="status-dot" />{(deal.status || "unknown").replaceAll("_", " ")}</span></div></div>
-        <div className="detail-actions"><Link className="secondary-button" to={`/deals/${deal.id}/assistant`}><span aria-hidden="true">✳</span> Ask Deal Assistant</Link><button className="primary-button" type="button" onClick={handlePrepareMeeting} disabled={briefState === "loading"}><span aria-hidden="true">▣</span> {briefState === "loading" ? "Preparing..." : "Prepare Meeting"}</button></div>
+        <div className="detail-actions"><Link className="secondary-button" to={`/deals/${deal.id}/assistant`}><span aria-hidden="true">✳</span> Ask Deal Assistant</Link><button className="primary-button" type="button" onClick={handlePrepareMeeting} disabled={briefState === "loading"}><span aria-hidden="true">▣</span> {briefState === "loading" ? "Preparing..." : "Prepare Meeting"}</button><button className="secondary-button" type="button" onClick={handleGenerateWarRoom} disabled={warRoomState === "loading"}><span aria-hidden="true">⚔</span> {warRoomState === "loading" ? "Analyzing..." : "Deal War Room"}</button></div>
       </section>
 
       {source === "demo" && <div className="demo-banner">SAMPLE DEAL CONTEXT <span>Some details below are illustrative until the backend returns complete deal records.</span></div>}
@@ -99,6 +175,8 @@ export default function DealDetailPage() {
       <section className="detail-metrics" aria-label="Deal summary"><article><span>Deal value</span><strong>{currencyLabel(deal.value, deal.currency)}</strong></article><article><span>Target close</span><strong>{dateLabel(deal.close_date)}</strong></article><article><span>Next meeting</span><strong>{dateLabel(deal.next_meeting, { dateStyle: "medium", timeStyle: "short" })}</strong></article><article><span>Deal owner</span><strong>{deal.owner || "Not assigned"}</strong></article></section>
 
       <BriefSection state={briefState} brief={brief} source={briefSource} error={briefError} memories={briefMemories} />
+
+      <WarRoomSection state={warRoomState} warRoom={warRoom} error={warRoomError} />
 
       <div className="detail-grid">
         <div className="detail-main-column">
