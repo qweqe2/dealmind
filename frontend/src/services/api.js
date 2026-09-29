@@ -1,47 +1,50 @@
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
-export async function healthCheck() {
-  const response = await fetch(`${API_BASE_URL}/api/health`);
+async function request(path, options = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, options);
 
   if (!response.ok) {
-    throw new Error("Backend request failed");
+    throw new Error(`Request failed with status ${response.status}`);
   }
 
   return response.json();
 }
 
-export async function getDeals() {
-  const response = await fetch(`${API_BASE_URL}/api/deals`);
-
-  if (!response.ok) {
-    throw new Error("Failed to fetch deals");
-  }
-
-  return response.json();
+export function healthCheck(options) {
+  return request("/api/health", options);
 }
 
-export async function chatWithAgent(dealId, message) {
-  const payload = {
-    message: message,
-  };
+export function getDeals(options) {
+  return request("/api/deals", options);
+}
 
-  // Only include deal_id if it's provided
-  if (dealId) {
-    payload.deal_id = parseInt(dealId, 10);
-  }
+export function getDeal(dealId, options) {
+  return request(`/api/deals/${encodeURIComponent(dealId)}`, options);
+}
 
-  const response = await fetch(`${API_BASE_URL}/api/agent/chat`, {
+export function getDealTimeline(dealId, options) {
+  return request(`/api/deals/${encodeURIComponent(dealId)}/timeline`, options);
+}
+
+export function getDealMemory(dealId, options) {
+  return request(`/api/deals/${encodeURIComponent(dealId)}/memory`, options);
+}
+
+export function sendDealMessage(dealId, message, options) {
+  return request("/api/agent/chat", {
+    ...options,
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify({ deal_id: dealId, message }),
   });
+}
 
-  if (!response.ok) {
-    throw new Error("Failed to chat with agent");
-  }
-
-  return response.json();
+export function prepareMeeting(dealId, options) {
+  return request("/api/agent/prepare", {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify({ deal_id: dealId }),
+  });
 }
