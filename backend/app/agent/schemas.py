@@ -27,3 +27,17 @@ class AgentPrepareResponse(BaseModel):
 
     brief: dict = Field(..., description="Meeting brief details")
     memories: list[dict] = Field(default_factory=list, description="Relevant memories")
+
+
+class WarRoomResponse(BaseModel):
+    """Response schema for Deal War Room endpoint."""
+
+    summary: str = Field(..., description="Deal summary")
+    primary_blocker: str = Field(..., description="Primary blocker")
+    next_best_action: str = Field(..., description="Next best action")
+    stakeholder: str = Field(..., description="Most relevant stakeholder")
+    questions: list[str] = Field(default_factory=list, description="Questions to move deal forward")
+    risks: list[str] = Field(default_factory=list, description="Deal risks")
+    deal_id: Optional[int] = Field(None, description="Deal ID")
+    company: Optional[str] = Field(None, description="Company name")
+    deal_name: Optional[str] = Field(None, description="Deal name")
