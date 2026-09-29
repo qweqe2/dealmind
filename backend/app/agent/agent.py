@@ -1,9 +1,10 @@
 import json
 from typing import Optional
 from sqlalchemy.orm import Session
-from anthropic import Anthropic, AuthenticationError
+from anthropic import Anthropic, AuthenticationError, BadRequestError
 from app.core.config import settings
 from app.agent.tools import get_deals_needing_attention, get_deal_details
+from app.services.hindsight_service import hindsight_service
 
 
 def run_agent(question: str, db: Session, deal_id: Optional[int] = None) -> dict:
@@ -27,6 +28,24 @@ def run_agent(question: str, db: Session, deal_id: Optional[int] = None) -> dict
     # Use Anthropic SDK with the configured API key
     client = Anthropic(api_key=settings.LLM_API_KEY)
 
+    # Hindsight memory bank ID
+    hindsight_bank_id = "dealmind-agent"
+
+    # Ensure Hindsight bank exists
+    if hindsight_service.enabled:
+        hindsight_service.ensure_bank_exists(hindsight_bank_id)
+
+    # Recall relevant memories before processing
+    recalled_memories = []
+    if hindsight_service.enabled:
+        recalled_memories = hindsight_service.recall_memories(
+            bank_id=hindsight_bank_id,
+            query=question,
+            types=["world", "experience", "observation"],
+            max_tokens=2048,
+            budget="mid",
+        )
+
     # Build system prompt
     system_prompt = """You are DealMind AI, a sales deal assistant. You help sales teams understand their deals, identify blockers, and take action.
 
@@ -47,13 +66,30 @@ After getting tool results, provide a natural language answer."""
     if deal_id:
         system_prompt += f"\n\nContext: The user is asking about deal #{deal_id}."
 
+    # Add recalled memories to context if available
+    memory_context = ""
+    if recalled_memories:
+        memory_context = "\n\nRelevant memories from previous conversations:\n"
+        for memory in recalled_memories[:5]:  # Limit to top 5 memories
+            memory_context += f"- {memory['text']}\n"
+        system_prompt += memory_context
+
     # Simple single-turn approach: Get deals needing attention and answer
     attention_deals = get_deals_needing_attention(db)
 
     if not attention_deals:
+        # Still retain memory even if no deals need attention
+        if hindsight_service.enabled and question:
+            hindsight_service.retain_memory(
+                bank_id=hindsight_bank_id,
+                content=f"User asked: {question}. No deals currently need attention.",
+                context="agent interaction",
+                document_id=f"conversation_{deal_id or 'general'}",
+            )
+
         return {
             "answer": "Great news! No deals currently need attention. All deals are on track.",
-            "memories": [],
+            "memories": recalled_memories,
         }
 
     # Format deals data for LLM
@@ -77,12 +113,38 @@ After getting tool results, provide a natural language answer."""
     except AuthenticationError:
         return {
             "answer": "LLM API key is invalid. Please update LLM_API_KEY in backend/.env with a valid Anthropic API key.",
-            "memories": [],
+            "memories": recalled_memories,
         }
+    except BadRequestError as e:
+        if "credit balance" in str(e):
+            return {
+                "answer": "Anthropic account has no credits. Add credits at console.anthropic.com (Plans & Billing), then retry.",
+                "memories": recalled_memories,
+            }
+        raise
 
     answer = response.content[0].text
 
+    # Retain useful information from this interaction
+    if hindsight_service.enabled:
+        # Store the user's question and the context
+        hindsight_service.retain_memory(
+            bank_id=hindsight_bank_id,
+            content=f"User asked: {question}",
+            context="user question",
+            document_id=f"conversation_{deal_id or 'general'}",
+        )
+
+        # Store important observations if the answer contains actionable insights
+        if "attention" in answer.lower() or "blocker" in answer.lower() or "action" in answer.lower():
+            hindsight_service.retain_memory(
+                bank_id=hindsight_bank_id,
+                content=f"Agent observation: {answer[:500]}",
+                context="agent observation",
+                document_id=f"conversation_{deal_id or 'general'}",
+            )
+
     return {
         "answer": answer.strip(),
-        "memories": [],
+        "memories": recalled_memories,
     }
